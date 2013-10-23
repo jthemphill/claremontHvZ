@@ -1,5 +1,7 @@
+from django.core.cache import get_cache
 from django.db.models import Count
 from django.views.generic.list import ListView
+from django.conf import settings
 
 from HVZ.main.models import Player, Game, School
 
@@ -14,6 +16,10 @@ class PlayerListView(ListView):
         return super(PlayerListView, self).get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
+        cache = get_cache('default')
+        print cache.get('testkey')
+        cache.set('testkey', 'testvalue')
+
         context = super(PlayerListView, self).get_context_data(**kwargs)
         context['game_season'] = Game.nearest_game().season()
 
@@ -24,6 +30,10 @@ class PlayerListView(ListView):
         context['years'] = map(str, sorted(set([p.grad_year for p in Player.current_players()])))
         context['school'] = self.kwargs.get('school', '')
         context['gradyear'] = self.kwargs.get('gradyear', '')
+        context['CACHE_TIMEOUT'] = settings.CACHE_TIMEOUT
+
+        context['selectedschool'] = self.kwargs['school']
+        context['selectedgradyear'] = self.kwargs['gradyear']
 
         return context
 

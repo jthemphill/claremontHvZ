@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.test.client import Client
 from django.test.utils import override_settings
+from django.conf import settings
 
 from HVZ.basetest import BaseTest, HUGH_MANN
 from HVZ.main import models, forms
@@ -239,6 +240,55 @@ class RandomPlayerTest(BaseTest):
         )
         self.assertEqual(num_players, models.Player.objects.count())
         self.assertEqual(num_ozs, models.Player.objects.filter(team='Z').count())
+
+class CacheInvalidationTest(BaseTest):
+    def setUp(self):
+        self.c = Client()
+        c = Client()
+        self.login_as_tabler(c)
+        c.post(reverse('register'), HUGH_MANN)
+        self.assertEqual(1, models.Player.current_players().count())
+
+    def test_new_game_resets_player_list(self):
+        c = self.c
+        response = c.get(reverse('player_list'))
+        self.assertEqual(200, response.status_code)
+
+        # Content should be the same when hitting player list multiple
+        # times with no change.
+        self.assertEqual(response.content, c.get(reverse("player_list")).content)
+
+        now = settings.NOW()
+        with self.settings(NOW=lambda: now + timedelta(days=7)):
+            self.create_new_game()
+
+            # After new game, there should be no current players. This
+            # should change the content of player_list.
+            self.assertEqual(0, models.Player.current_players().count())
+
+            new_game_response = c.get(reverse("player_list"))
+            self.assertEqual(200, new_game_response.status_code)
+
+            self.assertNotEqual(response.content, new_game_response.content)
+
+    def test_new_player_resets_player_list(self):
+        c = self.c
+        response = c.get(reverse('player_list'))
+        self.assertEqual(200, response.status_code)
+
+        # Content should be the same when hitting player list multiple
+        # times with no change.
+        self.assertEqual(response.content, c.get(reverse("player_list")).content)
+
+        self.login_as_tabler(c)
+        c.post(reverse('register'), ROB_ZOMBIE)
+        self.assertEqual(2, models.Player.current_players().count())
+
+        self.assertNotEqual(
+            response.content,
+            c.get(reverse('player_list')).content
+        )
+
 
 class EmptyCaseTest(TestCase):
     def test_landing(self):

@@ -107,6 +107,7 @@ TIME_ZONE = local_settings.TIME_ZONE
 LANGUAGE_CODE = local_settings.LANGUAGE_CODE
 
 CACHES = local_settings.CACHES
+CACHE_TIMEOUT = 300
 
 ### We're done here! ###
 

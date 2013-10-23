@@ -1,3 +1,4 @@
+from django.core.cache import get_cache
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django_localflavor_us.models import PhoneNumberField
@@ -74,6 +75,11 @@ class Game(models.Model):
             return u"{} (ongoing)".format(self.season())
         else:
             return self.season()
+
+    def save(self, *args, **kwargs):
+        # Invalidate the cache
+        get_cache('default').clear()
+        return super(Game, self).save(*args, **kwargs)
 
     def season(self):
         return u"{} {}".format(

@@ -1,8 +1,9 @@
 from datetime import timedelta
 
-from django.conf import settings
+from django.core.cache import get_cache
 from django.core.urlresolvers import reverse
 from django.test.client import Client
+from django.conf import settings
 
 from HVZ.basetest import BaseTest, define_user
 from HVZ.main.models import Player, Game
@@ -77,7 +78,7 @@ class PermissionTest(BaseTest):
         """Ensure that zombies can access the meal page."""
 
         # Let Rob be a zombie this time.
-        z = Player.objects.filter(user__email=ROB_ZOMBIE["email"]).get()
+        z = Player.current_players().filter(user__email=ROB_ZOMBIE["email"]).get()
         z.team = "Z"
         z.save()
 
@@ -96,7 +97,7 @@ class PermissionTest(BaseTest):
         with self.settings(NOW=lambda:now-timedelta(5)):
 
             # Let Rob be a zombie
-            z = Player.objects.filter(user__email=ROB_ZOMBIE["email"]).get()
+            z = Player.current_players().filter(user__email=ROB_ZOMBIE["email"]).get()
             z.team = "Z"
             z.save()
 
@@ -114,7 +115,7 @@ class EatingTest(BaseTest):
         # Create a zombie
         c.post(reverse("register"), ROB_ZOMBIE)
 
-        z = Player.objects.get()
+        z = Player.current_players().get()
         z.team = "Z"
         z.save()
 
@@ -133,13 +134,13 @@ class EatingTest(BaseTest):
         self.assertEqual(Meal.objects.count(), 1)
 
         # Check that the victim is now a zombie
-        victim = Player.objects.filter(user__email=VICTIM["email"]).get()
+        victim = Player.current_players().filter(user__email=VICTIM["email"]).get()
         self.assertEqual(victim.team, "Z")
 
     def test_invalid_time(self):
         """Ensure that eating times only occur within the game's timeline."""
 
-        num_z = Player.objects.filter(team='Z').count()
+        num_z = Player.current_players().filter(team='Z').count()
         self.assertEqual(Meal.objects.count(), 0)
 
         m = MEAL.copy()
@@ -151,7 +152,7 @@ class EatingTest(BaseTest):
 
         # Ensure that no meal was created, and no new zombies have spawned.
         self.assertEqual(Meal.objects.count(), 0)
-        self.assertEqual(Player.objects.filter(team='Z').count(), num_z)
+        self.assertEqual(Player.current_players().filter(team='Z').count(), num_z)
 
     def test_double_eating(self):
         """Ensure a zombie can't eat the same victim twice."""
@@ -176,7 +177,7 @@ class EatingTest(BaseTest):
 
         self.assertEqual(Meal.objects.count(), 1)
 
-        get_victim = Player.objects.filter(user__email=VICTIM["email"]).get
+        get_victim = Player.current_players().filter(user__email=VICTIM["email"]).get
 
         # Resurrect the victim
         p = get_victim()
@@ -197,16 +198,35 @@ class EatingTest(BaseTest):
 
         # Make sure the meal happened
         self.assertEqual(Meal.objects.count(), 1)
-        self.assertEqual(Player.objects.filter(team='Z').count(), 2)
-        self.assertEqual(Player.objects.get(user__username=VICTIM['email']).team, 'Z')
+        self.assertEqual(Player.current_players().filter(team='Z').count(), 2)
+        self.assertEqual(Player.current_players().get(user__username=VICTIM['email']).team, 'Z')
 
         # Undo the meal
         Meal.objects.get().delete()
 
         self.assertEqual(Meal.objects.count(), 0)
-        self.assertEqual(Player.objects.filter(team='Z').count(), 1)
-        self.assertEqual(Player.objects.get(user__username=VICTIM['email']).team, 'H')
+        self.assertEqual(Player.current_players().filter(team='Z').count(), 1)
+        self.assertEqual(Player.current_players().get(user__username=VICTIM['email']).team, 'H')
 
+    def test_feeding_invalidates_cache(self):
+        # Check the player list, warming the cache
+        c = Client()
+        self.assertEqual(200, c.get(reverse('player_list')).status_code)
+
+        # Content should be the same when hitting player list multiple
+        # times with no change.
+        response = c.get(reverse('player_list'))
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(response.content, c.get(reverse("player_list")).content)
+
+        # Eat the victim
+        c.post(reverse("login"), ROB_ZOMBIE)
+        c.post(reverse("feed_eat"), MEAL)
+
+        # Eating the victim should have invalidated the cache.
+        self.assertNotEqual(
+            response.content, c.get(reverse("player_list")).content
+        )
 
 class MultiGame(BaseTest):
 
@@ -224,7 +244,7 @@ class MultiGame(BaseTest):
         # And a zombie in the present
         self.create_new_game()
         c.post(reverse("register"), ROB_ZOMBIE)
-        z = Player.objects.filter(user__email=ROB_ZOMBIE["email"]).get()
+        z = Player.current_players().filter(user__email=ROB_ZOMBIE["email"]).get()
         z.team = "Z"
         z.save()
 

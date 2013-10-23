@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 
+{% load cache %}
 {% load static %}
 {% load player_extras %}
 
@@ -53,6 +54,7 @@
     </ul>
   </div>
 </div>
+{% cache CACHE_TIMEOUT players selectedschool selectedgradyear %}
 <div id="tables" class="row">
 {# HUMANS #}
 {% with player_list|filter_by:"team,H" as humans %}
@@ -124,5 +126,6 @@
 </div>
 {% endwith %}
 </div>
+{% endcache %}
 <div class="clearer"></div>
 {% endblock %}

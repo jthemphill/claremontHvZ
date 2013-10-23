@@ -1,3 +1,4 @@
+from django.core.cache import get_cache
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.signals import pre_delete
