@@ -5,12 +5,11 @@ from HVZ.main.models import Player, Game, ModSchedule
 
 def inject_outbreak_percentage(request):
     try:
-        newest_game = Game.nearest_game()
+        players = Player.current_players()
     except Game.DoesNotExist:
         # Just return an arbitrary sane value
         return {'outbreak_percent': 96}
 
-    players = Player.objects.filter(game=newest_game)
     humans = players.filter(team='H')
 
     nPlayers = players.count()

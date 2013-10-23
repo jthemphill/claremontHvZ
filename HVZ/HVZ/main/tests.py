@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.core import management
 from django.core.urlresolvers import reverse
 from django.contrib.auth.models import User
+from django.test import TestCase
 from django.test.client import Client
 from django.test.utils import override_settings
 
@@ -238,3 +239,9 @@ class RandomPlayerTest(BaseTest):
         )
         self.assertEqual(num_players, models.Player.objects.count())
         self.assertEqual(num_ozs, models.Player.objects.filter(team='Z').count())
+
+class EmptyCaseTest(TestCase):
+    def test_landing(self):
+        c = Client()
+        response = c.get(reverse('main_landing'))
+        self.assertEqual(response.status_code, 200)

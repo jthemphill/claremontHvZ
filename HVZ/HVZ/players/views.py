@@ -30,11 +30,11 @@ class PlayerListView(ListView):
     def get_queryset(self):
         queryset = Player.current_players()
 
-        if self.kwargs.get('gradyear'):
-            queryset = queryset.filter(grad_year=self.kwargs['gradyear'])
-
         if self.kwargs.get('school'):
             queryset = queryset.filter(school__name__istartswith=self.kwargs['school'])
+
+        if self.kwargs.get('gradyear'):
+            queryset = queryset.filter(grad_year=self.kwargs['gradyear'])
 
         return (queryset.
                 select_related('user', 'school__name').
@@ -47,5 +47,4 @@ class PlayerEmailView(ListView):
     template_name = 'players/email_list.html'
 
     def get_queryset(self):
-        game = Game.nearest_game()
-        return Player.objects.filter(game=game)
+        return Player.current_players()
